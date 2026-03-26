@@ -2,23 +2,94 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Simple Dodge Game</title> <!-- This is the browser tab name -->
+    <title>Simple Dodge Game</title>
     <style>
-        html,body{height:100%;margin:0;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif}
-        canvas{background:#0b1220;border:4px solid #222;image-rendering:pixelated}
-        #info{position:fixed;top:10px;left:50%;transform:translateX(-50%);text-align:center}
+        html,body{
+            height:100%;
+            margin:0;
+            background:#111;
+            color:#fff;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-family:sans-serif;
+            overflow:hidden;
+        }
+
+        canvas{
+            background:#0b1220;
+            border:4px solid #222;
+            image-rendering:pixelated;
+        }
+
+        #info{
+            position:fixed;
+            top:10px;
+            left:50%;
+            transform:translateX(-50%);
+            text-align:center;
+            font-size:14px;
+        }
+
+        /* MOBILE CONTROLS */
+        #mobileControls{
+            position:fixed;
+            bottom:20px;
+            width:100%;
+            display:flex;
+            justify-content:space-between;
+            padding:0 40px;
+            pointer-events:auto;
+        }
+
+        #mobileControls button{
+            width:80px;
+            height:80px;
+            font-size:30px;
+            border:none;
+            border-radius:50%;
+            background:rgba(255,255,255,0.2);
+            color:white;
+        }
+
+        #mobileControls button:active{
+            background:rgba(255,255,255,0.4);
+        }
+
+        #shootBtn{
+            position:fixed;
+            bottom:120px;
+            right:40px;
+            width:70px;
+            height:70px;
+            border-radius:50%;
+            background:rgba(255,200,0,0.3);
+            font-size:24px;
+            border:none;
+            color:white;
+        }
     </style>
 </head>
+
 <body>
-    <div id="info">Use ← → or A D to move. Press R to restart. Press Space to shoot!</div>
-    <canvas id="c" width="480" height="640"></canvas>
+<div id="info">Use ← → or A D. Press Space to shoot. R to restart.</div>
+
+<canvas id="c" width="480" height="640"></canvas>
+
+<!-- MOBILE BUTTONS -->
+<div id="mobileControls">
+    <button id="leftBtn">◀</button>
+    <button id="rightBtn">▶</button>
+</div>
+<button id="shootBtn">🔥</button>
+
 <script>
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
 let player, bullets, enemies, keys, gameOver, score, spawnTimer, speedMultiplier, highScore, shake;
 
-// Initialize or load high score from browser
+// Load high score
 highScore = localStorage.getItem('dodgeHigh') || 0;
 
 function reset(){
@@ -44,55 +115,84 @@ function spawnEnemy(){
     });
 }
 
-// Keyboard input
+// KEYBOARD INPUT
 window.addEventListener('keydown', e=>{
-    keys[e.key.toLowerCase()]=true;
+    keys[e.key.toLowerCase()] = true;
 
-    // Shoot bullets
     if(e.key === ' ' && !gameOver){
-        bullets.push({
-            x: player.x + player.w/2 - 3,
-            y: player.y,
-            w: 6,
-            h: 10,
-            speed: 10
-        });
+        shoot();
     }
 
-    if(e.key==='r' && gameOver) reset();
+    if(e.key === 'r' && gameOver) reset();
 });
-window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
 
+window.addEventListener('keyup', e=>{
+    keys[e.key.toLowerCase()] = false;
+});
+
+// SHOOT FUNCTION
+function shoot(){
+    bullets.push({
+        x: player.x + player.w/2 - 3,
+        y: player.y,
+        w: 6,
+        h: 10,
+        speed: 10
+    });
+}
+
+// MOBILE CONTROLS
+const leftBtn = document.getElementById('leftBtn');
+const rightBtn = document.getElementById('rightBtn');
+const shootBtn = document.getElementById('shootBtn');
+
+leftBtn.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    keys['arrowleft'] = true;
+});
+leftBtn.addEventListener('touchend', ()=> keys['arrowleft'] = false);
+
+rightBtn.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    keys['arrowright'] = true;
+});
+rightBtn.addEventListener('touchend', ()=> keys['arrowright'] = false);
+
+shootBtn.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(!gameOver) shoot();
+});
+
+// GAME UPDATE
 function update(){
     if(gameOver) return;
 
-    // Move player
     if(keys['arrowleft']||keys['a']) player.x -= player.speed;
     if(keys['arrowright']||keys['d']) player.x += player.speed;
+
     player.x = Math.max(0, Math.min(W-player.w, player.x));
 
-    // Spawn enemies
-    spawnTimer -= 1;
+    spawnTimer--;
     if(spawnTimer <= 0){
         spawnEnemy();
-        spawnTimer = Math.max(10, 50 - Math.floor(score/3)); // faster with score
+        spawnTimer = Math.max(10, 50 - Math.floor(score/3));
         speedMultiplier = 1 + score/100;
     }
 
-    // Update enemies
     for(let i=enemies.length-1;i>=0;i--){
         const e = enemies[i];
         e.y += e.speed;
 
-        // Enemy passes bottom
-        if(e.y > H){ enemies.splice(i,1); score += 1; }
+        if(e.y > H){
+            enemies.splice(i,1);
+            score++;
+        }
 
-        // Collision with player
-        if(e.x < player.x+player.w && e.x+e.w > player.x && e.y < player.y+player.h && e.y+e.h > player.y){
+        if(e.x < player.x+player.w && e.x+e.w > player.x &&
+           e.y < player.y+player.h && e.y+e.h > player.y){
             gameOver = true;
             shake = 10;
 
-            // Save high score if beaten
             if(score > highScore){
                 highScore = score;
                 localStorage.setItem('dodgeHigh', highScore);
@@ -100,19 +200,18 @@ function update(){
         }
     }
 
-    // Update bullets
-    for(let i = bullets.length-1; i >= 0; i--){
+    for(let i=bullets.length-1;i>=0;i--){
         const b = bullets[i];
         b.y -= b.speed;
         if(b.y < 0) bullets.splice(i,1);
     }
 
-    // Bullet-enemy collisions
     for(let i=enemies.length-1;i>=0;i--){
         const e = enemies[i];
         for(let j=bullets.length-1;j>=0;j--){
             const b = bullets[j];
-            if(b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y){
+            if(b.x < e.x+e.w && b.x+b.w > e.x &&
+               b.y < e.y+e.h && b.y+b.h > e.y){
                 enemies.splice(i,1);
                 bullets.splice(j,1);
                 score += 2;
@@ -122,41 +221,35 @@ function update(){
     }
 }
 
+// DRAW
 function draw(){
-    // Optional screen shake
     if(shake > 0){
         ctx.save();
         ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
         shake--;
     }
 
-    // Background
     ctx.fillStyle = '#071219';
     ctx.fillRect(0,0,W,H);
 
-    // Player
     ctx.fillStyle = '#4FE3A1';
     roundRect(ctx, player.x, player.y, player.w, player.h, 4, true);
 
-    // Enemies
     for(const e of enemies){
         ctx.fillStyle = '#E35B5B';
         roundRect(ctx, e.x, e.y, e.w, e.h, 6, true);
     }
 
-    // Bullets
     ctx.fillStyle = '#FFD166';
     for(const b of bullets){
         ctx.fillRect(b.x, b.y, b.w, b.h);
     }
 
-    // UI
     ctx.fillStyle = '#9fcbdc';
     ctx.font = '16px monospace';
     ctx.fillText('Score: ' + score, 10, 22);
     ctx.fillText('High: ' + highScore, W-120, 22);
 
-    // Game over overlay
     if(gameOver){
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, H/2-60, W, 120);
@@ -165,7 +258,7 @@ function draw(){
         ctx.textAlign = 'center';
         ctx.fillText('Game Over', W/2, H/2-8);
         ctx.font = '16px monospace';
-        ctx.fillText('Press R to restart — Score: ' + score, W/2, H/2+22);
+        ctx.fillText('Press R to restart', W/2, H/2+22);
         ctx.textAlign = 'left';
     }
 
@@ -190,7 +283,7 @@ function roundRect(ctx,x,y,w,h,r,fill){
     ctx.lineTo(x,y+r);
     ctx.quadraticCurveTo(x,y,x+r,y);
     ctx.closePath();
-    if(fill) ctx.fill(); else ctx.stroke();
+    if(fill) ctx.fill();
 }
 
 reset();
